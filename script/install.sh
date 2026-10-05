@@ -316,7 +316,17 @@ depend() {
 EOF
         chmod +x /etc/init.d/v2node
         rc-update add v2node default
-        echo -e "${green}v2node ${last_version}${plain} 安装完成，已设置开机自启"
+
+        # Configure automatic restart every 4 hours.
+        touch /etc/crontabs/root
+        sed -i '/# v2node-auto-restart$/d' /etc/crontabs/root
+        echo '0 */4 * * * /etc/init.d/v2node restart >/dev/null 2>&1 # v2node-auto-restart' >> /etc/crontabs/root
+        if [[ -x /etc/init.d/crond ]]; then
+            rc-update add crond default >/dev/null 2>&1 || true
+            rc-service crond start >/dev/null 2>&1 || true
+        fi
+
+        echo -e "${green}v2node ${last_version}${plain} 安装完成，已设置开机自启和每4小时自动重启"
     else
         rm /etc/systemd/system/v2node.service -f
         cat <<EOF > /etc/systemd/system/v2node.service
@@ -337,6 +347,8 @@ WorkingDirectory=/usr/local/v2node/
 ExecStart=/usr/local/v2node/v2node server
 Restart=always
 RestartSec=10
+# Automatically restart the service every 4 hours.
+RuntimeMaxSec=4h
 
 [Install]
 WantedBy=multi-user.target
@@ -375,7 +387,7 @@ EOF
     fi
 
 
-    curl -o /usr/bin/v2node -Ls https://raw.githubusercontent.com/wyx2685/v2node/main/script/v2node.sh
+    curl -o /usr/bin/v2node -Ls https://raw.githubusercontent.com/agjvrkgj/v2node/main/script/v2node.sh
     chmod +x /usr/bin/v2node
 
     cd $cur_dir
